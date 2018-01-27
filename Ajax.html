@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+    <style>
+        .button {
+            background-color: #e7e7e7;
+            border: none;
+            color: black;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            transition: background-color 1s;
+        }
+
+        .buttonPageNumber {
+            padding: 7px;
+            width: 32px;
+        }
+        .ratingButton {
+            padding: 7px;
+            width: 75px;
+            font-size: 12px;
+        }
+        #paginationButton{
+            padding: 3%;
+            padding-bottom: 2%;
+            text-align:center
+        }
+        .searchButton{
+            padding: 4px;
+            width: 75px;
+            font-size: 12px;
+        }
+        table{
+            width: 75%;
+            border-collapse:collapse;
+            font-size: 13px;
+            margin: 0px auto;
+            background-color: #fafafa;
+        }
+        th{
+            background-color: #212121;
+            color: white;
+            font-size: 16px;
+            text-align: left;
+        }
+        td {
+            /*border-bottom: 1px solid #212121;*/
+            padding: 5px;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color:#424242;
+            color: #FFFFFF;
+        }
+        .search{
+            padding-top: 15px;
+            text-align: center;
+        }
+        .errorMessage{
+            text-align: center;
+            color:  #b71c1c;
+            background-color: #ffebee;
+            /*border-color: #212121;*/
+        }
+        body{
+            background-color: #b2dfdb;
+        }
+        h1{
+            text-align: center;
+        }
+        .description{
+            text-align: center;
+        }
+
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <script>
+        /* Four suggested names for Auto_complete*/
+        $(document).ready(function() {
+            var businessName = [
+                "A La Turka",
+                "Ancient Raj",
+                "Birdies",
+                "Eurest"
+            ];
+
+            /* AJAX and display the first page to #tableData*/
+            $.get( 'https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php',
+                {op: 'retrieve', page: '1'}).done(function( data ) {
+                populateTable(data);
+                search();
+                $('input:button[id = "pageButton1"]').css({"background-color": "#212121", "color": "#FFFFFF"});
+            });
+
+            /*get the number of pages.
+            * onClick page button, AJAX and populate the data*/
+            $.get( "https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php",
+                {op: "pages"}).done(function(data) {
+                for(i = 1; i <= $.parseJSON(data).pages; i++){
+                    $(paginationButton).append('<input type="button" class="button buttonPageNumber" value="'+i+'" name="pageButton" id="pageButton'+i+'"/> ');
+                }
+                $('input:button[name = "pageButton"]').click(function() {
+                    /*change active button background*/
+                    $(this).parent().find('.button').css({"background-color": "#e7e7e7", "color": "black"});
+                    $(this).css({"background-color": "#212121", "color": "#FFFFFF"});
+
+                    $("#tableData").empty();
+                    $.get( "https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php",
+                        {op: "retrieve", page: $(this).val() }).done(function( data ) {
+                        populateTable(data);
+                        search();
+                    });
+                });
+            });
+
+            /*@param JSON data
+            * populates table body with id #tableData*/
+            function populateTable(data) {
+                $.each($.parseJSON(data), function(i, obj) {
+                    var tableRow = "<tr>"
+                        + "<td>"+obj.business+"</td>"
+                        + "<td>"+obj.address+"</td>"
+                        + "<td>"+obj.rating+"</td>"
+                        + "<td>"+obj.date+"</td>"
+                        + '<td id = "rating"><input type="button" class="button ratingButton" value="Get Rating" name="getRating" data-businessName="'+obj.business+'" data-businessPostcode="'+obj.postcode+'"id="ratingButton'+i+'"/></td>'
+                        + '</tr>';
+                    $("#tableData").append(tableRow);
+                });
+                getCustomerRating();
+            }
+
+            /*Display customers rating from a different server than that of hygiene rating.
+            *Display customers rating onClick button on to a dialog.
+            */
+            function getCustomerRating() {
+                $('input:button[name = "getRating"]').click(function() {
+                    var businessPostcode = $(this).attr('data-businessPostcode');
+                    $.get( 'https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/rating.php',
+                        {name: $(this).attr('data-businessName')}).done(function( data ) {
+                        $("#popupWindow").empty();
+                        var foundRating;
+                        if($.parseJSON(data).length === 0){
+                            $( "#popupWindow" ).dialog().append("No rating!");
+                        }else {
+                            $.each($.parseJSON(data), function(i, obj) {
+                                if(obj.address.match(businessPostcode)) {
+                                    var custRating = obj.business + "<br>Customer rating : " + obj.rating;
+                                    console.log(obj.business);
+                                    $("#popupWindow").dialog().append(custRating);
+                                    foundRating = true;
+                                }
+                            });
+                            if(!foundRating){
+                                $("#popupWindow").dialog().append("No rating!");
+                            }
+                        }
+                    });
+                });
+            }
+
+            /*Search box, autocomplete and remember last search business name(s)*/
+            function search() {
+                $( function() {
+                    $( "#search" ).autocomplete({
+                        source: businessName
+                    });
+                });
+                $('input:button[name = "searchButton"]').click(function() {
+                    var searchValue = $('#search').val();
+                    $("#errorMessage").empty();
+                    $.get( 'https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php',
+                        {op: 'searchname', name: searchValue}).done(function( data ) {
+                        if(searchValue !== ""){
+                            if ($.parseJSON(data).length === 0) {
+                                $("#errorMessage").append('No result found for "'+searchValue+'".');
+                            } else {
+                                $("#tableData").empty();
+                                populateTable(data);
+                                $.each($.parseJSON(data), function (i, obj) {
+                                    if(!businessName.toString().includes(obj.business)){businessName.push(obj.business);}
+                                });
+                            }
+                        }else {
+                            $( "#errorMessage" ).append('Please enter a search value!');
+                        }
+                    });
+                });
+            }
+        });
+
+    </script>
+    <title>A simple interactive page</title>
+</head>
+<body>
+    <div class="description">
+        <h1>Canterbury Food	Hygiene	Ratings</h1>
+        <span>This site displays food hygiene rating and costumers' rating for local businesses who serve food.</span>
+    </div>
+    <div id = "paginationButton">
+    </div>
+    <div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Business</th>
+                    <th>Address</th>
+                    <th>Rating</th>
+                    <th>Date</th>
+                    <th>Customers’ Ratings</th>
+                </tr>
+            </thead>
+            <tbody id="tableData"></tbody>
+        </table>
+    </div>
+    <div id="popupWindow" title="Customer Rating">
+    </div>
+    <div class="ui-widget search">
+        <label for="search">Business name: </label>
+        <input id="search">
+        <input type="button" name="searchButton" class="button searchButton" value="search" id="searchButton"/>
+    </div>
+    <div>
+        <p class="errorMessage" id = "errorMessage" ></p>
+    </div>
+</body>
+</html>
